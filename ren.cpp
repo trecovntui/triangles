@@ -1,20 +1,20 @@
 /*
-	  Y      -Z
+
+          Y      -Z
           |      /
-	  |     /
-	  |    /
-	  |   /
-	  |  /
-	  | /
-	  |/
-	  O----------------X
+          |     /
+          |    /
+          |   /
+          |  /
+          | /
+          |/
+          O----------------X
          /
         /
        /
       /
      /
     Z
-
 
  Camera is at the origin O looking in the direction -z
  Place surface at z = -5 (DISTS)
@@ -55,7 +55,15 @@ Transformation rotate(
 		 -0.5, 0.866, 0,
 		    0,     0, 0,
 		    1
-		);
+);
+
+// invert y
+Transformation invert_y(
+		1,  0, 0,
+		0, -1, 0,
+		0,  0, 1,
+    1
+);
 
 Point_3 cube[8] = {
 	Point_3(0, 0, 0),
@@ -74,36 +82,52 @@ Point_3 triangle[3] = {
 	Point_3(0, 1, 0)
 };
 
-double image[IMG_W][IMG_H] = {0};
+// 222,  69,  72
+//  22, 124,  76
+//  38, 128, 167
+
+#define NUM_T 1
+
+/*
+Point_3 triang[NUM_T * 3][2] = {
+	{ Point_3(0, 0, -60), Point_3(222,  69,  72) },
+	{ Point_3(100, 0,  0), Point_3(222,  69,  72) },
+	{ Point_3(0, 100,  0), Point_3(222,  69,  72) },
+
+	{ Point_3(0, 0, -30), Point_3( 38, 128, 167) },
+	{ Point_3(100, 0, -30), Point_3( 38, 128, 167) },
+	{ Point_3(0, 100, -30), Point_3( 38, 128, 167) }
+};
+*/
+
+Point_3 triang[NUM_T * 3][2] = {
+	{ Point_3(0, 0, 0), Point_3(222,  69,  72) },
+	{ Point_3(100, 0,  0), Point_3( 22, 124,  76) },
+	{ Point_3(0, 100,  0), Point_3(38, 128, 167) }
+};
+
+
+sf::Uint8* pixels = new sf::Uint8[IMG_W * IMG_H * 4];
+double zarray[IMG_W][IMG_H] = {0};
+
+double determine(Vector_3 x, Vector_3 y, Vector_3 z) {
+  double deter = 0;
+
+  deter += x.x() * (y.y() - z.y());
+  deter += y.x() * (z.y() - x.y());
+  deter += z.x() * (x.y() - y.y());
+
+  return deter;
+}
 
 int main(int argc, char* argv[])
 {
-  //std::vector<Point_3> points;
-  //Point_3 p;
-  
+  sf::RenderWindow window(sf::VideoMode(IMG_W, IMG_H), "triangles", sf::Style::Titlebar | sf::Style::Close);
+
   Surface_mesh sm;
-  //CGAL::convex_hull_3(points.begin(), points.end(), sm);
-  //CGAL::convex_hull_3(cube, cube + 8, sm);
   CGAL::convex_hull_3(triangle, triangle + 3, sm);
 
-  //std::cout << "The convex hull contains " << num_vertices(sm) << " vertices" << std::endl;
-  //std::cout << "n_faces: " << sm.number_of_faces() << std::endl;
-
   int n_faces = 0;
-
-  /*
-  for (Surface_mesh::Face_index face_index : sm.faces()) {
-    n_faces++;
-    Surface_mesh::Halfedge_index hf = sm.halfedge(face_index);
-    std::cout << "face " << n_faces << ":" << std::endl;
-    for(Surface_mesh::Halfedge_index hi : halfedges_around_face(hf, sm)) {
-      Surface_mesh::Vertex_index vi = target(hi, sm);
-      std::cout << "vi: " << sm.point(vi) << std::endl;
-    }
-  }
-
-  std::cout << "n_faces: " << n_faces << std::endl;
-  */
 
   // Step 1: Project Primitives
   int v_index = 0;
@@ -111,31 +135,27 @@ int main(int argc, char* argv[])
   Point_3 tp;
   double z_i_t[3];
 
-  Point_2 a, b, c; // of triangle
+  Point_2 a, b, c; // of projected triangle
   Point_2 t_pixel;
 
   float ratio = (IMG_W / CLIP_W);
 
-  for (Surface_mesh::Face_index face_index : sm.faces()) {
-    Surface_mesh::Halfedge_index hf = sm.halfedge(face_index);
-    n_faces++;
-    //std::cout << "face " << n_faces << ":" << std::endl;
+  sf::Texture texture;
+  sf::Sprite sprite;
+  texture.create(IMG_W, IMG_H);
+
+  for(int p = 0; p < NUM_T; p++) {
     v_index = 0;
-    for(Surface_mesh::Halfedge_index hi : halfedges_around_face(hf, sm)) {
-      Surface_mesh::Vertex_index vi = target(hi, sm);
-      //std::cout << "vi: " << sm.point(vi) << std::endl;
-      tp = sm.point(vi);
-      tp = scale(tp);
+    for(int q = (3 * p); q < (3 * (p + 1)); q++) {
+      tp = triang[q][0];
+      // transform the object in any way
+      // apply the T to tp
+      //tp = scale(tp);
       //tp = rotate(tp);
+      tp = invert_y(tp);
       tp = translate(tp);
-      //std::cout << "vt: " << tp << std::endl;
       v_t_p[v_index] = Point_2(DISTS * tp.x() / tp.z(), DISTS * tp.y() / tp.z());
       z_i_t[v_index] = (1.0 / tp.z());
-      int x_map = (int)((ratio * v_t_p[v_index].x()) + (IMG_W / 2));
-      int y_map = (int)((ratio * v_t_p[v_index].y()) + (IMG_H / 2));
-      if(((x_map < IMG_W) && (x_map >= 0)) && ((y_map < IMG_H) && (y_map >= 0))) {
-	//image[x_map][y_map] = 2;
-      }
       v_index++;
     }
 
@@ -150,62 +170,62 @@ int main(int argc, char* argv[])
 
     double det_t = CGAL::determinant(a_1, b_1, c_1);
 
-    Vector_2 ba = Vector_2(a, b); // b - a
-    Vector_2 ca = Vector_2(a, c); // c - a
-
-    Vector_2 bc = Vector_2(c, b); // b - c
-    Vector_2 ac = Vector_2(c, a); // a - c
-
-    Vector_2 cap = ca.perpendicular(CGAL::CLOCKWISE);
-    Vector_2 bap = ba.perpendicular(CGAL::CLOCKWISE);
-    Vector_2 bcp = bc.perpendicular(CGAL::CLOCKWISE);
-
     for(int i = 0; i < (IMG_W - 1); i++) {
       for(int j = 0; j < (IMG_H - 1); j++) {
-	image[i][j] = 1.0 / z_i_t[1];
         t_pixel = Point_2(((float)((float)i - (IMG_W / 2))) / ratio, ((float)((float)j - (IMG_H / 2))) / ratio);
 
-	Vector_2 av = Vector_2(Point_2(0, 0), a);
-	Vector_2 cv = Vector_2(Point_2(0, 0), c);
-	Vector_2 tpv = Vector_2(Point_2(0, 0), t_pixel);
-	Vector_2 pdiff_a = tpv - (2 * av);
-	Vector_2 pdiff_c = tpv - (2 * cv);
+        Vector_3 tp_1 = Vector_3(t_pixel.x(), t_pixel.y(), 1);
 
-	float alpha = (pdiff_a * cap) / (ba * cap);
-	float beta = (pdiff_a * bap) / (ca * bap);
-	float delta = (pdiff_c * bcp) / (ac * bcp);
+        double alpha_d = CGAL::determinant(tp_1, b_1, c_1) / det_t;
+        double beta_d = CGAL::determinant(a_1, tp_1, c_1) / det_t;
+        double gamma_d = CGAL::determinant(a_1, b_1, tp_1) / det_t;
 
-	if((alpha >= 0) && (beta >= 0) && (delta >= 0)) {
-	  // pixel inside triangle
+        if((alpha_d >= 0) && (beta_d >= 0) && (gamma_d >= 0)) {
+          // pixel inside triangle
 
-          Vector_3 tp_1 = Vector_3(t_pixel.x(), t_pixel.y(), 1);
+          double depth = (z_i_t[0] * alpha_d) +
+                         (z_i_t[1] * beta_d) +
+                         (z_i_t[2] * gamma_d);
+          depth = (1.0 / depth);
+          depth = (-1.0) * depth; // now depth is positive
 
-	  double alpha_d = CGAL::determinant(tp_1, b_1, c_1) / det_t;
-	  double beta_d = CGAL::determinant(a_1, tp_1, c_1) / det_t;
-	  double gamma_d = CGAL::determinant(a_1, b_1, tp_1) / det_t;
+          if(depth > zarray[i][j]) {
+            Vector_3 v1c = Vector_3(Point_3(0, 0, 0), triang[(3 * p) + 0][1]);
+            Vector_3 v2c = Vector_3(Point_3(0, 0, 0), triang[(3 * p) + 1][1]);
+            Vector_3 v3c = Vector_3(Point_3(0, 0, 0), triang[(3 * p) + 2][1]);
 
-	  //std::cout << z_i_t[0] << " " << z_i_t[1] << " " << z_i_t[2] << std::endl;
+            Vector_3 pix_c = (alpha_d * v1c * z_i_t[0]) +
+                             (beta_d  * v2c * z_i_t[1]) +
+                             (gamma_d * v3c * z_i_t[2]);
+            pix_c = -1.0 * depth * pix_c;
 
-	  double depth = (z_i_t[0] * alpha_d) +
-	  	         (z_i_t[1] * beta_d) +
-		         (z_i_t[2] * gamma_d);
-	  //std::cout << "inv_depth: " << depth << std::endl;
-	  depth = (1.0 / depth);
-	  //std::cout << "depth: " << depth << std::endl;
 
-	  image[i][j] = depth;
-	}
+            pixels[(j * IMG_W * 4) + (i * 4) + 0] = pix_c.x();
+            pixels[(j * IMG_W * 4) + (i * 4) + 1] = pix_c.y();
+            pixels[(j * IMG_W * 4) + (i * 4) + 2] = pix_c.z();
+            pixels[(j * IMG_W * 4) + (i * 4) + 3] = 255;
+          }
+        }
       }
     }
     // pixel loop done
-
   }
 
-  for(int i = 0; i < (IMG_W - 1); i++) {
-    for(int j = 0; j < (IMG_H - 1); j++) {
-      std::cout << image[i][j] << " ";
+  texture.update(pixels);
+  //texture.setSmooth(true);
+  sprite.setTexture(texture);
+
+  while (window.isOpen()) {
+    sf::Event event;
+    while (window.pollEvent(event)) {
+      if (event.type == sf::Event::Closed) {
+        window.close();
+      }
     }
-    std::cout << std::endl;
+
+    window.clear();
+    window.draw(sprite);
+    window.display();
   }
 
   return 0;
