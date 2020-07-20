@@ -1,3 +1,5 @@
 a.out
 ren
 ren_e
+*.obj
+*.mtl
