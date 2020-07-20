@@ -34,6 +34,8 @@
 #include <sstream>
 #include <vector>
 
+#include <cmath>
+
 #define CLIP_W 100
 #define CLIP_W 100
 #define IMG_W 500
@@ -55,10 +57,14 @@ typedef struct {
   Point_3 c[3];
 } Triangle;
 
+float ratio = (IMG_W / CLIP_W);
+
+float angle = 0;
+
 Transformation rotate(
-		0.866,   0.5, 0,
-		 -0.5, 0.866, 0,
-		    0,     0, 1,
+		    1,     0,     0,
+		    0, 0.866,  -0.5,
+		    0,   0.5, 0.866,
 		    1
 );
 
@@ -90,6 +96,8 @@ Transformation invert_y(
 
 Point_3 c_green( 22, 124,  76);
 Point_3 c_beige(245, 245, 220);
+
+Point_3 bgcolour = c_beige;
 
 // light
 Vector_3 light(0, 0, 1);
@@ -241,52 +249,56 @@ void read_obj(std::string obj_file) {
   } // if open successful
 }
 
-int main(int argc, char* argv[])
-{
-  // normalise light direction
-  light = light / std::sqrt(light.squared_length());
+//Transformation translate(CGAL::TRANSLATION, Vector_3(0, 0, std::stoi(argv[1])));
+//Transformation scale(CGAL::SCALING, std::stoi(argv[2]));
+Transformation translate;
+Transformation scale;
 
-  std::cout << "n_total_triangles: " << triangles.size() << std::endl;
-
-  sf::RenderWindow window(sf::VideoMode(IMG_W, IMG_H), "triangles", sf::Style::Titlebar | sf::Style::Close);
-
-  Point_2 v_t_p[3];
-  Point_3 tp;
-  double z_i_t[3];
-  Point_2 t_pixel;
-
-  float ratio = (IMG_W / CLIP_W);
-
-  sf::Texture texture;
-  sf::Sprite sprite;
-  texture.create(IMG_W, IMG_H);
-
-  Point_3 bgcolour = c_beige;
+void clear_pixels() {
   for(int i = 0; i < IMG_W; i++) {
     for(int j = 0; j < IMG_H; j++) {
       pixels[(j * IMG_W * 4) + (i * 4) + 0] = bgcolour.x();
       pixels[(j * IMG_W * 4) + (i * 4) + 1] = bgcolour.y();
       pixels[(j * IMG_W * 4) + (i * 4) + 2] = bgcolour.z();
       pixels[(j * IMG_W * 4) + (i * 4) + 3] = 255;
+      zarray[i][j] = 0;
     }
   }
+}
+
+void update_angle(bool l_or_r) {
+  angle += (l_or_r) ? (M_PI / 10) : (-1 * (M_PI / 10));
+  rotate = Transformation(
+     cos(angle),          0,  sin(angle),
+          	  0,          1,           0,
+    -sin(angle),          0,  cos(angle),
+        	    1
+          );
+  clear_pixels();
+}
+
+void process_frame() {
+
+  Point_3 v_t[3];
+  Point_2 v_t_p[3];
+  Point_3 tp;
+  double z_i_t[3];
+  Point_2 t_pixel;
 
 #if USE_OBJ
-
-  read_obj(argv[3]);
-
-  Transformation translate(CGAL::TRANSLATION, Vector_3(0, 0, std::stoi(argv[1])));
-  Transformation scale(CGAL::SCALING, std::stoi(argv[2]));
-
   for(int p = 0; p < triangles.size(); p++) {
     for(int q = 0; q < 3; q++) {
       tp = triangles[p].v[q];
       // transform the object in any way
       // apply the T to tp
-      tp = invert_y(tp);
-      //tp = rotate_x(tp);
+      //tp = invert_y(tp);
+      tp = rotate(tp);
       tp = scale(tp);
       tp = translate(tp);
+
+      v_t[q] = tp;
+
+      tp = invert_y(tp);
 
       // project
       v_t_p[q] = Point_2(DISTS * tp.x() / tp.z(), DISTS * tp.y() / tp.z());
@@ -301,13 +313,7 @@ int main(int argc, char* argv[])
       triangles[p].c[2]
     };
 
-    Vector_3 d1(triangles[p].v[0], triangles[p].v[1]);
-    Vector_3 d2(triangles[p].v[0], triangles[p].v[2]);
-
 #else // not using .obj
-
-  Transformation translate(CGAL::TRANSLATION, Vector_3(0, 0, std::stoi(argv[1])));
-  Transformation scale(CGAL::SCALING, std::stoi(argv[2]));
 
   for(int p = 0; p < NUM_T; p++) {
     int v_index = 0;
@@ -315,10 +321,14 @@ int main(int argc, char* argv[])
       tp = triang[q][0];
       // transform the object in any way
       // apply the T to tp
-      tp = invert_y(tp);
-      //tp = rotate(tp);
+      //tp = invert_y(tp);
+      tp = rotate(tp);
       tp = scale(tp);
       tp = translate(tp);
+
+      v_t[v_index] = tp;
+
+      tp = invert_y(tp);
 
       // project
       v_t_p[v_index] = Point_2(DISTS * tp.x() / tp.z(), DISTS * tp.y() / tp.z());
@@ -334,9 +344,11 @@ int main(int argc, char* argv[])
       triang[(3 * p) + 2][1]
     };
 
-    Vector_3 d1(triang[(3 * p) + 0][0], triang[(3 * p) + 1][0]);
-    Vector_3 d2(triang[(3 * p) + 0][0], triang[(3 * p) + 2][0]);
 #endif
+
+    // v_t has the transformed original coordinates
+    Vector_3 d1(v_t[0], v_t[1]);
+    Vector_3 d2(v_t[0], v_t[2]);
 
     Vector_3 normal = CGAL::cross_product(d1, d2);
     normal = normal / std::sqrt(normal.squared_length());
@@ -410,7 +422,31 @@ int main(int argc, char* argv[])
     // pixel loop done
   } // triangle loop done
 
-  texture.update(pixels);
+}
+
+int main(int argc, char* argv[])
+{
+
+  translate = Transformation(CGAL::TRANSLATION, Vector_3(0, 0, std::stoi(argv[1])));
+  scale = Transformation(CGAL::SCALING, std::stoi(argv[2]));
+
+  // normalise light direction
+  light = light / std::sqrt(light.squared_length());
+
+#if USE_OBJ
+  read_obj(argv[3]);
+#endif
+
+  std::cout << "n_total_triangles: " << triangles.size() << std::endl;
+
+  sf::RenderWindow window(sf::VideoMode(IMG_W, IMG_H), "triangles", sf::Style::Titlebar | sf::Style::Close);
+
+  sf::Texture texture;
+  sf::Sprite sprite;
+  texture.create(IMG_W, IMG_H);
+
+  clear_pixels();
+
   sprite.setTexture(texture);
 
   while (window.isOpen()) {
@@ -419,7 +455,28 @@ int main(int argc, char* argv[])
       if (event.type == sf::Event::Closed) {
         window.close();
       }
+
+      if (event.type == sf::Event::EventType::KeyPressed) {
+        if (event.key.code == sf::Keyboard::Up) {
+          scale = Transformation(CGAL::SCALING, 1.2) * scale;
+          clear_pixels();
+        }
+        if (event.key.code == sf::Keyboard::Down) {
+          scale = Transformation(CGAL::SCALING, 1.0 / 1.2) * scale;
+          clear_pixels();
+        }
+        if(event.key.code == sf::Keyboard::Left) {
+          update_angle(true);
+        }
+        if(event.key.code == sf::Keyboard::Right) {
+          update_angle(false);
+        }
+      }
     }
+
+    process_frame();
+    texture.update(pixels);
+
     window.clear();
     window.draw(sprite);
     window.display();
