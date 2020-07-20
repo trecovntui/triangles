@@ -17,9 +17,5 @@ all: ren
 ren: $(OBJ)
 	g++ -o $@ $^ $(LIBS)
 
-ren_e:
-	g++ -o ren_e -I ~/repos/eigen ren_e.cpp $(MAINLIB)
-
 clean:
 	rm -f ren *.o
-	rm -f ren_e *.o
