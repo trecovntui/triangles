@@ -249,8 +249,6 @@ void read_obj(std::string obj_file) {
   } // if open successful
 }
 
-//Transformation translate(CGAL::TRANSLATION, Vector_3(0, 0, std::stoi(argv[1])));
-//Transformation scale(CGAL::SCALING, std::stoi(argv[2]));
 Transformation translate;
 Transformation scale;
 
@@ -380,16 +378,25 @@ void process_frame() {
     if(j_min < 0) j_min = 0;
     if(j_max >= IMG_H) j_max = (IMG_H - 1);
 
+    t_pixel = Point_2(((float)((float)i_min - (IMG_W / 2))) / ratio,
+                      ((float)((float)j_min - (IMG_H / 2))) / ratio);
+    Vector_3 tp_1 = Vector_3(t_pixel.x(), t_pixel.y(), 1);
+
+    double alpha_d = CGAL::determinant(tp_1, b_1, c_1) / det_t;
+    double beta_d = CGAL::determinant(a_1, tp_1, c_1) / det_t;
+    double gamma_d = CGAL::determinant(a_1, b_1, tp_1) / det_t;
+
+    double alpha_i = (b_1.y() - c_1.y()) / (ratio * det_t);
+    double alpha_j = (c_1.x() - b_1.x()) / (ratio * det_t);
+
+    double beta_i = (c_1.y() - a_1.y()) / (ratio * det_t);
+    double beta_j = (a_1.x() - c_1.x()) / (ratio * det_t);
+
+    double gamma_i = (a_1.y() - b_1.y()) / (ratio * det_t);
+    double gamma_j = (b_1.x() - a_1.x()) / (ratio * det_t);
+
     for(int i = i_min; i <= i_max; i++) {
       for(int j = j_min; j <= j_max; j++) {
-        t_pixel = Point_2(((float)((float)i - (IMG_W / 2))) / ratio, ((float)((float)j - (IMG_H / 2))) / ratio);
-
-        Vector_3 tp_1 = Vector_3(t_pixel.x(), t_pixel.y(), 1);
-
-        double alpha_d = CGAL::determinant(tp_1, b_1, c_1) / det_t;
-        double beta_d = CGAL::determinant(a_1, tp_1, c_1) / det_t;
-        double gamma_d = CGAL::determinant(a_1, b_1, tp_1) / det_t;
-
         if((alpha_d >= 0) && (beta_d >= 0) && (gamma_d >= 0)) {
           // pixel inside triangle
 
@@ -417,7 +424,16 @@ void process_frame() {
             pixels[(j * IMG_W * 4) + (i * 4) + 3] = 255;
           }
         }
+        alpha_d += alpha_j;
+        beta_d += beta_j;
+        gamma_d += gamma_j;
       }
+      alpha_d -= ((j_max - j_min + 1) * alpha_j);
+      beta_d  -= ((j_max - j_min + 1) * beta_j);
+      gamma_d -= ((j_max - j_min + 1) * gamma_j);
+      alpha_d += alpha_i;
+      beta_d += beta_i;
+      gamma_d += gamma_i;
     }
     // pixel loop done
   } // triangle loop done
