@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.1)
+project(ren)
+set(CMAKE_BUILD_TYPE "Release")
+find_package(CGAL REQUIRED COMPONENTS Core)
+find_package(SFML 2 REQUIRED graphics window system)
+add_executable(ren ren.cpp)
+target_link_libraries(ren CGAL::CGAL CGAL::CGAL_Core sfml-graphics sfml-window sfml-system)
