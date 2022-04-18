@@ -44,6 +44,10 @@
 
 #define USE_OBJ 1
 
+#ifndef M_PI
+	#define M_PI 3.14159265358979323846
+#endif
+
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::Point_3 Point_3;
 typedef K::Point_2 Point_2;
@@ -57,9 +61,9 @@ typedef struct {
   Point_3 c[3];
 } Triangle;
 
-float ratio = (IMG_W / CLIP_W);
+double ratio = (IMG_W / CLIP_W);
 
-float angle = 0;
+double angle = 0;
 
 Transformation rotate(
 		    1,     0,     0,
@@ -255,9 +259,9 @@ Transformation scale;
 void clear_pixels() {
   for(int i = 0; i < IMG_W; i++) {
     for(int j = 0; j < IMG_H; j++) {
-      pixels[(j * IMG_W * 4) + (i * 4) + 0] = bgcolour.x();
-      pixels[(j * IMG_W * 4) + (i * 4) + 1] = bgcolour.y();
-      pixels[(j * IMG_W * 4) + (i * 4) + 2] = bgcolour.z();
+      pixels[(j * IMG_W * 4) + (i * 4) + 0] = (sf::Uint8) bgcolour.x();
+      pixels[(j * IMG_W * 4) + (i * 4) + 1] = (sf::Uint8) bgcolour.y();
+      pixels[(j * IMG_W * 4) + (i * 4) + 2] = (sf::Uint8) bgcolour.z();
       pixels[(j * IMG_W * 4) + (i * 4) + 3] = 255;
       zarray[i][j] = 0;
     }
@@ -378,8 +382,8 @@ void process_frame() {
     if(j_min < 0) j_min = 0;
     if(j_max >= IMG_H) j_max = (IMG_H - 1);
 
-    t_pixel = Point_2(((float)((float)i_min - (IMG_W / 2))) / ratio,
-                      ((float)((float)j_min - (IMG_H / 2))) / ratio);
+    t_pixel = Point_2(((double)((double)i_min - (IMG_W / 2))) / ratio,
+                      ((double)((double)j_min - (IMG_H / 2))) / ratio);
     Vector_3 tp_1 = Vector_3(t_pixel.x(), t_pixel.y(), 1);
 
     double alpha_d = CGAL::determinant(tp_1, b_1, c_1) / det_t;
@@ -418,9 +422,9 @@ void process_frame() {
                              (gamma_d * v3c * z_i_t[2]);
             pix_c = -1.0 * depth * dot_factor * pix_c;
 
-            pixels[(j * IMG_W * 4) + (i * 4) + 0] = pix_c.x();
-            pixels[(j * IMG_W * 4) + (i * 4) + 1] = pix_c.y();
-            pixels[(j * IMG_W * 4) + (i * 4) + 2] = pix_c.z();
+            pixels[(j * IMG_W * 4) + (i * 4) + 0] = (sf::Uint8) pix_c.x();
+            pixels[(j * IMG_W * 4) + (i * 4) + 1] = (sf::Uint8) pix_c.y();
+            pixels[(j * IMG_W * 4) + (i * 4) + 2] = (sf::Uint8) pix_c.z();
             pixels[(j * IMG_W * 4) + (i * 4) + 3] = 255;
           }
         }
